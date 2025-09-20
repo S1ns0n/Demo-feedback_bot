@@ -2,7 +2,6 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
 def create_theory_keyboard(step_index: int) -> InlineKeyboardMarkup:
-    """Клавиатура для теоретического шага"""
     button = InlineKeyboardButton(
         text="дальше →",
         callback_data=f"next_{step_index + 1}"
@@ -11,7 +10,6 @@ def create_theory_keyboard(step_index: int) -> InlineKeyboardMarkup:
 
 
 def create_practice_keyboard(buttons: list, step_index: int) -> InlineKeyboardMarkup:
-    """Клавиатура для практического задания"""
     keyboard_buttons = []
 
     for btn in buttons:
@@ -22,6 +20,22 @@ def create_practice_keyboard(buttons: list, step_index: int) -> InlineKeyboardMa
             )
         )
 
-    # Разбиваем кнопки по 2 в ряд для лучшего вида
     rows = [keyboard_buttons[i:i + 2] for i in range(0, len(keyboard_buttons), 2)]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def create_branch_keyboard(options: list, step_index: int) -> InlineKeyboardMarkup:
+    """Клавиатура для развилок с вариантами ответов"""
+    keyboard_buttons = []
+
+    for i, option in enumerate(options, 1):
+        keyboard_buttons.append(
+            InlineKeyboardButton(
+                text=option['text'],
+                callback_data=f"branch_{step_index}_{i}"
+            )
+        )
+
+    # Разбиваем кнопки по 1 в ряд для лучшего отображения
+    rows = [[btn] for btn in keyboard_buttons]
     return InlineKeyboardMarkup(inline_keyboard=rows)

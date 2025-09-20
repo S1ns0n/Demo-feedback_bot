@@ -2,7 +2,7 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher
 
-from bot.config import BOT_TOKEN
+from bot.config import BOT_TOKEN, ROOT_DIR
 from bot.handlers.start_handler import router as start_router
 from bot.handlers.scenario_handler import router as scenario_router
 
@@ -24,4 +24,5 @@ async def main():
 
 
 if __name__ == "__main__":
+    print(ROOT_DIR)
     asyncio.run(main())

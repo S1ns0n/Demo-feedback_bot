@@ -1,22 +1,22 @@
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove, FSInputFile
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
+import os
 
 from bot.states.user_state import UserState
 from bot.utils.scenario_loader import load_scenario
-from bot.keyboards.scenario_keyboards import create_theory_keyboard, create_practice_keyboard
-
+from bot.keyboards.scenario_keyboards import create_theory_keyboard, create_practice_keyboard, create_branch_keyboard
+from bot.config import IMAGE_DIR
 router = Router()
 
 
 async def send_scenario_step(message: Message, state: FSMContext):
-    """Отправка текущего шага сценария"""
+    """Отправка текущего шага сценария с поддержкой локальных фото"""
     user_data = await state.get_data()
     scenario = user_data['scenario']
     current_step = user_data['current_step']
 
-    # Проверка завершения сценария
     if current_step >= len(scenario['steps']):
         await message.answer("🎉 Сценарий завершен! Можете начать заново командой /start_scenario",
                              reply_markup=ReplyKeyboardRemove())
@@ -24,27 +24,103 @@ async def send_scenario_step(message: Message, state: FSMContext):
         return
 
     step = scenario['steps'][current_step]
+    has_photo = 'photo' in step and step['photo']
 
-    # Отправка сообщения в зависимости от типа шага
+    # Функция для отправки сообщения с фото или без
+    async def send_content(text: str, keyboard=None):
+        if has_photo:
+            # Формируем путь к локальному файлу
+            photo_path = os.path.join(IMAGE_DIR, step['photo'])
+
+            # Проверяем существование файла
+            if not os.path.exists(photo_path):
+                await message.answer(f"❌ Фото не найдено: {step['photo']}")
+                # Отправляем только текст если фото нет
+                await message.answer(text, reply_markup=keyboard)
+                return
+
+            # Создаем объект фото из локального файла
+            photo = FSInputFile(photo_path)
+
+            # Отправляем фото с текстом как подпись
+            await message.answer_photo(
+                photo=photo,
+                caption=text,
+                reply_markup=keyboard
+            )
+        else:
+            # Отправляем только текст
+            await message.answer(
+                text=text,
+                reply_markup=keyboard
+            )
+
+    # Обработка разных типов шагов
     if step['type'] == "theory":
         keyboard = create_theory_keyboard(current_step)
-        await message.answer(step['text'], reply_markup=keyboard)
+        await send_content(step['text'], keyboard)
         await state.set_state(UserState.in_scenario)
 
     elif step['type'] == "practice":
         keyboard = create_practice_keyboard(step['buttons'], current_step)
-        await message.answer(step['text'], reply_markup=keyboard)
+        await send_content(step['text'], keyboard)
         await state.set_state(UserState.waiting_answer)
 
     elif step['type'] == "text_answer":
-        # Для текстовых заданий убираем клавиатуру и ждем ввод
         text = step['text']
         if 'placeholder' in step:
-            text += f"\n\n💡 *Подсказка:* {step['placeholder']}"
+            text += f"\n\n💡 Подсказка: {step['placeholder']}"
 
-        await message.answer(text, reply_markup=ReplyKeyboardRemove())
+        if has_photo:
+            photo_path = os.path.join(IMAGE_DIR, step['photo'])
+            if not os.path.exists(photo_path):
+                await message.answer(f"❌ Фото не найдено: {step['photo']}")
+                await message.answer(text, reply_markup=ReplyKeyboardRemove())
+            else:
+                photo = FSInputFile(photo_path)
+                await message.answer_photo(
+                    photo=photo,
+                    caption=text,
+                    reply_markup=ReplyKeyboardRemove()
+                )
+        else:
+            await message.answer(text, reply_markup=ReplyKeyboardRemove())
         await state.set_state(UserState.waiting_text_input)
 
+    elif step['type'] == "branch":
+        keyboard = create_branch_keyboard(step['options'], current_step)
+        await send_content(step['text'], keyboard)
+        await state.set_state(UserState.waiting_branch)
+
+
+# ... остальные обработчики без изменений ...
+
+
+@router.callback_query(F.data.startswith("branch_"))
+async def handle_branch_callback(callback: CallbackQuery, state: FSMContext):
+    """Обработка выбора в развилке"""
+    data_parts = callback.data.split("_")
+    step_index = int(data_parts[1])
+    option_index = int(data_parts[2]) - 1
+
+    user_data = await state.get_data()
+    scenario = user_data['scenario']
+    step = scenario['steps'][step_index]
+
+    selected_option = step['options'][option_index]
+    response = selected_option['response']
+
+    # Отправляем ответ на выбор
+    await callback.message.answer(response)
+
+    # Переходим к следующему шагу
+    await state.update_data(current_step=step_index + 1)
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await send_scenario_step(callback.message, state)
+    await callback.answer()
+
+
+# ... остальные обработчики без изменений ...
 
 @router.message(StateFilter(UserState.waiting_text_input))
 async def handle_text_input(message: Message, state: FSMContext):
