@@ -25,7 +25,6 @@ def create_practice_keyboard(buttons: list, step_index: int) -> InlineKeyboardMa
 
 
 def create_branch_keyboard(options: list, step_index: int) -> InlineKeyboardMarkup:
-    """Клавиатура для развилок с вариантами ответов"""
     keyboard_buttons = []
 
     for i, option in enumerate(options, 1):
@@ -36,6 +35,22 @@ def create_branch_keyboard(options: list, step_index: int) -> InlineKeyboardMark
             )
         )
 
-    # Разбиваем кнопки по 1 в ряд для лучшего отображения
     rows = [[btn] for btn in keyboard_buttons]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def create_survey_keyboard(buttons: list, step_index: int) -> InlineKeyboardMarkup:
+    """Клавиатура для опросов без проверки правильности"""
+    keyboard_buttons = []
+
+    for btn in buttons:
+        keyboard_buttons.append(
+            InlineKeyboardButton(
+                text=btn,
+                callback_data=f"survey_{step_index}_{btn}"
+            )
+        )
+
+    # Разбиваем кнопки по 2 в ряд для лучшего вида
+    rows = [keyboard_buttons[i:i + 2] for i in range(0, len(keyboard_buttons), 2)]
     return InlineKeyboardMarkup(inline_keyboard=rows)

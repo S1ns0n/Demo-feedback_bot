@@ -5,3 +5,4 @@ class UserState(StatesGroup):
     waiting_answer = State()
     waiting_text_input = State()
     waiting_branch = State()
+    waiting_survey = State()

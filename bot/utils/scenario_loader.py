@@ -89,13 +89,11 @@ def validate_step_structure(step: dict) -> bool:
 
     step_type = step['type']
 
-    # Проверка поля photo (если есть)
     if 'photo' in step and step['photo']:
         if not isinstance(step['photo'], str):
-            logger.error("Поле 'photo' должно быть строкой (URL)")
+            logger.error("Поле 'photo' должно быть строкой (имя файла)")
             return False
 
-    # Остальная валидация по типам шагов
     if step_type == "theory":
         return True
 
@@ -110,10 +108,6 @@ def validate_step_structure(step: dict) -> bool:
 
         if not isinstance(step['buttons'], list) or len(step['buttons']) == 0:
             logger.error("Поле 'buttons' должно быть непустым списком")
-            return False
-
-        if step['correct_answer'] not in step['buttons']:
-            logger.error("correct_answer должен быть одним из элементов buttons")
             return False
 
         return True
@@ -138,6 +132,18 @@ def validate_step_structure(step: dict) -> bool:
             if 'response' not in option:
                 logger.error(f"Опция {i + 1} отсутствует поле 'response'")
                 return False
+
+        return True
+
+    elif step_type == "survey":
+        # Survey требует только buttons без correct_answer
+        if 'buttons' not in step:
+            logger.error("Для типа 'survey' отсутствует поле 'buttons'")
+            return False
+
+        if not isinstance(step['buttons'], list) or len(step['buttons']) == 0:
+            logger.error("Поле 'buttons' должно быть непустым списком")
+            return False
 
         return True
 

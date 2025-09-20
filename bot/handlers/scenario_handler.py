@@ -6,13 +6,13 @@ import os
 
 from bot.states.user_state import UserState
 from bot.utils.scenario_loader import load_scenario
-from bot.keyboards.scenario_keyboards import create_theory_keyboard, create_practice_keyboard, create_branch_keyboard
+from bot.keyboards.scenario_keyboards import create_theory_keyboard, create_practice_keyboard, create_branch_keyboard, create_survey_keyboard
 from bot.config import IMAGE_DIR
 router = Router()
 
 
 async def send_scenario_step(message: Message, state: FSMContext):
-    """Отправка текущего шага сценария с поддержкой локальных фото"""
+    """Отправка текущего шага сценария"""
     user_data = await state.get_data()
     scenario = user_data['scenario']
     current_step = user_data['current_step']
@@ -26,36 +26,23 @@ async def send_scenario_step(message: Message, state: FSMContext):
     step = scenario['steps'][current_step]
     has_photo = 'photo' in step and step['photo']
 
-    # Функция для отправки сообщения с фото или без
     async def send_content(text: str, keyboard=None):
         if has_photo:
-            # Формируем путь к локальному файлу
             photo_path = os.path.join(IMAGE_DIR, step['photo'])
-
-            # Проверяем существование файла
             if not os.path.exists(photo_path):
                 await message.answer(f"❌ Фото не найдено: {step['photo']}")
-                # Отправляем только текст если фото нет
                 await message.answer(text, reply_markup=keyboard)
                 return
 
-            # Создаем объект фото из локального файла
             photo = FSInputFile(photo_path)
-
-            # Отправляем фото с текстом как подпись
             await message.answer_photo(
                 photo=photo,
                 caption=text,
                 reply_markup=keyboard
             )
         else:
-            # Отправляем только текст
-            await message.answer(
-                text=text,
-                reply_markup=keyboard
-            )
+            await message.answer(text, reply_markup=keyboard)
 
-    # Обработка разных типов шагов
     if step['type'] == "theory":
         keyboard = create_theory_keyboard(current_step)
         await send_content(step['text'], keyboard)
@@ -92,8 +79,25 @@ async def send_scenario_step(message: Message, state: FSMContext):
         await send_content(step['text'], keyboard)
         await state.set_state(UserState.waiting_branch)
 
+    elif step['type'] == "survey":
+        keyboard = create_survey_keyboard(step['buttons'], current_step)
+        await send_content(step['text'], keyboard)
+        await state.set_state(UserState.waiting_survey)
 
-# ... остальные обработчики без изменений ...
+
+@router.callback_query(F.data.startswith("survey_"))
+async def handle_survey_callback(callback: CallbackQuery, state: FSMContext):
+    """Обработка ответов в опросе (без проверки правильности)"""
+    data_parts = callback.data.split("_")
+    step_index = int(data_parts[1])
+    user_answer = "_".join(data_parts[2:])
+
+    # Просто принимаем любой ответ и переходим дальше
+    await callback.answer("✅ Ответ принят!")
+
+    await state.update_data(current_step=step_index + 1)
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await send_scenario_step(callback.message, state)
 
 
 @router.callback_query(F.data.startswith("branch_"))
@@ -138,7 +142,7 @@ async def handle_text_input(message: Message, state: FSMContext):
 @router.message(Command("start_scenario"))
 async def cmd_start_scenario(message: Message, state: FSMContext):
     """Начало сценария по умолчанию"""
-    scenario = load_scenario("test")
+    scenario = load_scenario("day_6")
 
     if not scenario:
         await message.answer("❌ Сценарий не найден")
