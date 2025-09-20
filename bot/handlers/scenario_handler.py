@@ -1,6 +1,6 @@
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
-from aiogram.filters import Command
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
+from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 
 from bot.states.user_state import UserState
@@ -18,7 +18,8 @@ async def send_scenario_step(message: Message, state: FSMContext):
 
     # Проверка завершения сценария
     if current_step >= len(scenario['steps']):
-        await message.answer("🎉 Сценарий завершен! Можете начать заново командой /start_scenario")
+        await message.answer("🎉 Сценарий завершен! Можете начать заново командой /start_scenario",
+                             reply_markup=ReplyKeyboardRemove())
         await state.clear()
         return
 
@@ -34,6 +35,28 @@ async def send_scenario_step(message: Message, state: FSMContext):
         keyboard = create_practice_keyboard(step['buttons'], current_step)
         await message.answer(step['text'], reply_markup=keyboard)
         await state.set_state(UserState.waiting_answer)
+
+    elif step['type'] == "text_answer":
+        # Для текстовых заданий убираем клавиатуру и ждем ввод
+        text = step['text']
+        if 'placeholder' in step:
+            text += f"\n\n💡 *Подсказка:* {step['placeholder']}"
+
+        await message.answer(text, reply_markup=ReplyKeyboardRemove())
+        await state.set_state(UserState.waiting_text_input)
+
+
+@router.message(StateFilter(UserState.waiting_text_input))
+async def handle_text_input(message: Message, state: FSMContext):
+    """Обработка текстового ответа пользователя"""
+    # Просто принимаем любой текст и переходим дальше
+    await message.answer("✅ Спасибо за ваш ответ! Продолжаем...")
+
+    user_data = await state.get_data()
+    current_step = user_data['current_step']
+    await state.update_data(current_step=current_step + 1)
+
+    await send_scenario_step(message, state)
 
 
 @router.message(Command("start_scenario"))
