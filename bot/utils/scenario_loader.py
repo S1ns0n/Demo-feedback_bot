@@ -82,22 +82,40 @@ def validate_scenario_structure(data: dict) -> bool:
 
 
 def validate_step_structure(step: dict) -> bool:
-    """Валидация структуры отдельного шага"""
+    """
+    Валидация структуры отдельного шага
+
+    Args:
+        step: Данные шага
+
+    Returns:
+        bool: True если структура верная, False если есть ошибки
+    """
+    # Проверка обязательных полей для любого шага
     if 'type' not in step or 'text' not in step:
         logger.error("Отсутствуют обязательные поля: 'type' или 'text'")
         return False
 
     step_type = step['type']
 
+    # Проверка поля photo (если есть)
     if 'photo' in step and step['photo']:
         if not isinstance(step['photo'], str):
             logger.error("Поле 'photo' должно быть строкой (имя файла)")
             return False
 
+    # Проверка поля button_text (если есть)
+    if 'button_text' in step and step['button_text']:
+        if not isinstance(step['button_text'], str):
+            logger.error("Поле 'button_text' должно быть строкой")
+            return False
+
+    # Валидация в зависимости от типа шага
     if step_type == "theory":
-        return True
+        return True  # Теория требует только текст
 
     elif step_type == "practice":
+        # Практика требует кнопки и правильный ответ
         if 'buttons' not in step:
             logger.error("Для типа 'practice' отсутствует поле 'buttons'")
             return False
@@ -110,12 +128,17 @@ def validate_step_structure(step: dict) -> bool:
             logger.error("Поле 'buttons' должно быть непустым списком")
             return False
 
+        if step['correct_answer'] not in step['buttons']:
+            logger.error("correct_answer должен быть одним из элементов buttons")
+            return False
+
         return True
 
     elif step_type == "text_answer":
-        return True
+        return True  # Текстовый ответ требует только текст
 
     elif step_type == "branch":
+        # Развилка требует options
         if 'options' not in step:
             logger.error("Для типа 'branch' отсутствует поле 'options'")
             return False
@@ -124,6 +147,7 @@ def validate_step_structure(step: dict) -> bool:
             logger.error("Поле 'options' должно быть непустым списком")
             return False
 
+        # Проверка каждой опции
         for i, option in enumerate(step['options']):
             if 'text' not in option:
                 logger.error(f"Опция {i + 1} отсутствует поле 'text'")
@@ -131,6 +155,11 @@ def validate_step_structure(step: dict) -> bool:
 
             if 'response' not in option:
                 logger.error(f"Опция {i + 1} отсутствует поле 'response'")
+                return False
+
+            # Проверяем repeat_step если есть
+            if 'repeat_step' in option and not isinstance(option['repeat_step'], bool):
+                logger.error(f"Опция {i + 1}: поле 'repeat_step' должно быть boolean")
                 return False
 
         return True
@@ -179,4 +208,3 @@ def get_available_scenarios() -> list:
     except Exception as e:
         logger.error(f"Ошибка при получении списка сценариев: {e}")
         return []
-

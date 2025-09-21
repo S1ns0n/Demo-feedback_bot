@@ -18,7 +18,7 @@ async def send_scenario_step(message: Message, state: FSMContext):
     current_step = user_data['current_step']
 
     if current_step >= len(scenario['steps']):
-        await message.answer("🎉 Сценарий завершен! Можете начать заново командой /start_scenario",
+        await message.answer("🎉 Раздел завершен! Можете вернуться к списку разделов командой /menu",
                              reply_markup=ReplyKeyboardRemove())
         await state.clear()
         return
@@ -44,7 +44,9 @@ async def send_scenario_step(message: Message, state: FSMContext):
             await message.answer(text, reply_markup=keyboard)
 
     if step['type'] == "theory":
-        keyboard = create_theory_keyboard(current_step)
+        # Используем кастомный текст кнопки если есть, иначе стандартный
+        button_text = step.get('button_text', 'дальше →')
+        keyboard = create_theory_keyboard(current_step, button_text)
         await send_content(step['text'], keyboard)
         await state.set_state(UserState.in_scenario)
 
@@ -102,7 +104,7 @@ async def handle_survey_callback(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("branch_"))
 async def handle_branch_callback(callback: CallbackQuery, state: FSMContext):
-    """Обработка выбора в развилке"""
+    """Обработка выбора в развилке с возможностью повтора шага"""
     data_parts = callback.data.split("_")
     step_index = int(data_parts[1])
     option_index = int(data_parts[2]) - 1
@@ -117,21 +119,28 @@ async def handle_branch_callback(callback: CallbackQuery, state: FSMContext):
     # Отправляем ответ на выбор
     await callback.message.answer(response)
 
-    # Переходим к следующему шагу
-    await state.update_data(current_step=step_index + 1)
-    await callback.message.edit_reply_markup(reply_markup=None)
-    await send_scenario_step(callback.message, state)
+    # Проверяем, нужно ли повторять шаг
+    should_repeat = selected_option.get('repeat_step', False)
+
+    if should_repeat:
+        # Остаемся на текущем шаге
+        await callback.message.edit_reply_markup(reply_markup=None)
+        # Заново отправляем тот же шаг
+        await send_scenario_step(callback.message, state)
+    else:
+        # Переходим к следующему шагу
+        await state.update_data(current_step=step_index + 1)
+        await callback.message.edit_reply_markup(reply_markup=None)
+        await send_scenario_step(callback.message, state)
+
     await callback.answer()
 
 
-# ... остальные обработчики без изменений ...
 
 @router.message(StateFilter(UserState.waiting_text_input))
 async def handle_text_input(message: Message, state: FSMContext):
     """Обработка текстового ответа пользователя"""
     # Просто принимаем любой текст и переходим дальше
-    await message.answer("✅ Спасибо за ваш ответ! Продолжаем...")
-
     user_data = await state.get_data()
     current_step = user_data['current_step']
     await state.update_data(current_step=current_step + 1)

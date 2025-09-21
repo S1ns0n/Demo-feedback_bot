@@ -2,6 +2,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import os
 import json
 from bot.config import SCENARIOS_DIR
+from bot.utils.sorter import natural_sort_key
 
 
 def create_menu_scenarios_list_keyboard() -> InlineKeyboardMarkup:
@@ -10,7 +11,6 @@ def create_menu_scenarios_list_keyboard() -> InlineKeyboardMarkup:
     Кнопки по одной в ряд, отсортированные по алфавиту
     """
     try:
-        # Получаем список файлов в папке сценариев
         if not os.path.exists(SCENARIOS_DIR):
             os.makedirs(SCENARIOS_DIR)
             return InlineKeyboardMarkup(inline_keyboard=[[
@@ -25,7 +25,6 @@ def create_menu_scenarios_list_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="❌ Нет сценариев", callback_data="no_scenarios")
             ]])
 
-        # Создаем список для хранения данных сценариев
         scenarios_data = []
 
         for file in json_files:
@@ -33,14 +32,11 @@ def create_menu_scenarios_list_keyboard() -> InlineKeyboardMarkup:
             file_path = os.path.join(SCENARIOS_DIR, file)
 
             try:
-                # Загружаем JSON файл чтобы получить поле 'name'
                 with open(file_path, 'r', encoding='utf-8') as f:
                     scenario_data = json.load(f)
 
-                # Используем поле 'name' из JSON, если оно есть
                 display_name = scenario_data.get('name', scenario_name)
 
-                # Обрезаем длинные названия для красоты
                 if len(display_name) > 30:
                     display_name = display_name[:27] + "..."
 
@@ -57,11 +53,15 @@ def create_menu_scenarios_list_keyboard() -> InlineKeyboardMarkup:
                 'display_name': display_name
             })
 
-        # Сортируем по алфавиту по display_name
-        scenarios_data.sort(key=lambda x: x['display_name'].lower())
+        scenarios_data.sort(key=lambda x: natural_sort_key(x['display_name']))
 
-        # Создаем кнопки (по одной в ряд)
+
+
         rows = []
+
+        rows.append([
+            InlineKeyboardButton(text="📝 Содержание программы", callback_data="programm_list")
+        ])
         for scenario in scenarios_data:
             rows.append([
                 InlineKeyboardButton(
@@ -70,10 +70,9 @@ def create_menu_scenarios_list_keyboard() -> InlineKeyboardMarkup:
                 )
             ])
 
-        # Добавляем кнопку обновления списка
-        rows.append([
-            InlineKeyboardButton(text="🔄 Обновить список", callback_data="refresh_scenarios")
-        ])
+        # rows.append([
+        #     InlineKeyboardButton(text="🔄 Обновить список", callback_data="refresh_scenarios")
+        # ])
 
         return InlineKeyboardMarkup(inline_keyboard=rows)
 

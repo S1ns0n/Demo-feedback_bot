@@ -1,9 +1,14 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
-def create_theory_keyboard(step_index: int) -> InlineKeyboardMarkup:
+def create_theory_keyboard(step_index: int, button_text: str = "дальше →") -> InlineKeyboardMarkup:
+    """
+    Создает клавиатуру для теоретического блока
+    :param step_index: индекс текущего шага
+    :param button_text: текст кнопки (по умолчанию "дальше →")
+    """
     button = InlineKeyboardButton(
-        text="дальше →",
+        text=button_text,
         callback_data=f"next_{step_index + 1}"
     )
     return InlineKeyboardMarkup(inline_keyboard=[[button]])
