@@ -3,6 +3,7 @@ from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove, FSInputFi
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 import os
+from aiogram.enums import ParseMode
 
 from bot.states.user_state import UserState
 from bot.utils.scenario_loader import load_scenario
@@ -30,22 +31,23 @@ async def send_scenario_step(message: Message, state: FSMContext):
         if has_photo:
             photo_path = os.path.join(IMAGE_DIR, step['photo'])
             if not os.path.exists(photo_path):
-                await message.answer(f"❌ Фото не найдено: {step['photo']}")
-                await message.answer(text, reply_markup=keyboard)
+                await message.answer(f"❌ Фото не найдено: {step['photo']}", parse_mode=ParseMode.HTML)
+                await message.answer(text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
                 return
 
             photo = FSInputFile(photo_path)
             await message.answer_photo(
                 photo=photo,
                 caption=text,
-                reply_markup=keyboard
+                reply_markup=keyboard,
+                parse_mode=ParseMode.HTML
             )
         else:
-            await message.answer(text, reply_markup=keyboard)
+            await message.answer(text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
     if step['type'] == "theory":
         # Используем кастомный текст кнопки если есть, иначе стандартный
-        button_text = step.get('button_text', 'дальше →')
+        button_text = step.get('button_text', 'Дальше')
         keyboard = create_theory_keyboard(current_step, button_text)
         await send_content(step['text'], keyboard)
         await state.set_state(UserState.in_scenario)
@@ -63,17 +65,18 @@ async def send_scenario_step(message: Message, state: FSMContext):
         if has_photo:
             photo_path = os.path.join(IMAGE_DIR, step['photo'])
             if not os.path.exists(photo_path):
-                await message.answer(f"❌ Фото не найдено: {step['photo']}")
-                await message.answer(text, reply_markup=ReplyKeyboardRemove())
+                await message.answer(f"❌ Фото не найдено: {step['photo']}", parse_mode=ParseMode.HTML)
+                await message.answer(text, reply_markup=ReplyKeyboardRemove(), parse_mode=ParseMode.HTML)
             else:
                 photo = FSInputFile(photo_path)
                 await message.answer_photo(
                     photo=photo,
                     caption=text,
-                    reply_markup=ReplyKeyboardRemove()
+                    reply_markup=ReplyKeyboardRemove(),
+                    parse_mode=ParseMode.HTML
                 )
         else:
-            await message.answer(text, reply_markup=ReplyKeyboardRemove())
+            await message.answer(text, reply_markup=ReplyKeyboardRemove(), parse_mode=ParseMode.HTML)
         await state.set_state(UserState.waiting_text_input)
 
     elif step['type'] == "branch":
@@ -95,7 +98,7 @@ async def handle_survey_callback(callback: CallbackQuery, state: FSMContext):
     user_answer = "_".join(data_parts[2:])
 
     # Просто принимаем любой ответ и переходим дальше
-    await callback.answer("✅ Ответ принят!")
+    await callback.answer("✅ Ответ принят!", parse_mode=ParseMode.HTML)
 
     await state.update_data(current_step=step_index + 1)
     await callback.message.edit_reply_markup(reply_markup=None)
@@ -117,7 +120,7 @@ async def handle_branch_callback(callback: CallbackQuery, state: FSMContext):
     response = selected_option['response']
 
     # Отправляем ответ на выбор
-    await callback.message.answer(response)
+    await callback.message.answer(response, parse_mode=ParseMode.HTML)
 
     # Проверяем, нужно ли повторять шаг
     should_repeat = selected_option.get('repeat_step', False)
@@ -192,11 +195,11 @@ async def handle_answer_callback(callback: CallbackQuery, state: FSMContext):
     is_correct = user_answer == step.get('correct_answer', '')
 
     if is_correct:
-        await callback.message.answer("✅ Правильно! Переходим дальше...")
+        await callback.message.answer("✅ Правильно! Переходим дальше...", parse_mode=ParseMode.HTML)
         await state.update_data(current_step=step_index + 1)
         await callback.message.edit_reply_markup(reply_markup=None)
         await send_scenario_step(callback.message, state)
     else:
-        await callback.answer("❌ Неправильно, попробуйте еще раз", show_alert=True)
+        await callback.answer("❌ Неправильно, попробуйте еще раз", show_alert=True, parse_mode=ParseMode.HTML)
 
     await callback.answer()
