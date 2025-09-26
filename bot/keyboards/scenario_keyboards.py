@@ -25,7 +25,7 @@ def create_practice_keyboard(buttons: list, step_index: int) -> InlineKeyboardMa
             )
         )
 
-    rows = [keyboard_buttons[i:i + 2] for i in range(0, len(keyboard_buttons), 2)]
+    rows = [[button] for button in keyboard_buttons]
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -57,5 +57,14 @@ def create_survey_keyboard(buttons: list, step_index: int) -> InlineKeyboardMark
         )
 
     # Разбиваем кнопки по 2 в ряд для лучшего вида
-    rows = [keyboard_buttons[i:i + 2] for i in range(0, len(keyboard_buttons), 2)]
+    rows = [[button] for button in keyboard_buttons]
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def create_continue_keyboard(next_step_index: int) -> InlineKeyboardMarkup:
+    """Клавиатура для продолжения после branch"""
+    button = InlineKeyboardButton(
+        text="дальше",
+        callback_data=f"con_branch_{next_step_index}"
+    )
+    return InlineKeyboardMarkup(inline_keyboard=[[button]])

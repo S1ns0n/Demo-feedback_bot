@@ -5,6 +5,17 @@ from bot.config import SCENARIOS_DIR
 from bot.utils.sorter import natural_sort_key
 
 
+
+def go_to_menu_keyboard() -> InlineKeyboardMarkup:
+    try:
+        rows = []
+        rows.append([InlineKeyboardButton(text="Меню", callback_data=f"go_to_menu")])
+        return InlineKeyboardMarkup(inline_keyboard=rows)
+    except:
+        return InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="❌ Ошибка загрузки", callback_data="error_scenarios")
+        ]])
+
 def create_menu_scenarios_list_keyboard() -> InlineKeyboardMarkup:
     """
     Создает клавиатуру со списком всех доступных сценариев

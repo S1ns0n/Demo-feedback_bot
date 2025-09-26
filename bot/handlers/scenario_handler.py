@@ -7,7 +7,7 @@ from aiogram.enums import ParseMode
 
 from bot.states.user_state import UserState
 from bot.utils.scenario_loader import load_scenario
-from bot.keyboards.scenario_keyboards import create_theory_keyboard, create_practice_keyboard, create_branch_keyboard, create_survey_keyboard
+from bot.keyboards.scenario_keyboards import create_theory_keyboard, create_practice_keyboard, create_branch_keyboard, create_survey_keyboard, create_continue_keyboard
 from bot.config import IMAGE_DIR
 router = Router()
 
@@ -107,10 +107,18 @@ async def handle_survey_callback(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("branch_"))
 async def handle_branch_callback(callback: CallbackQuery, state: FSMContext):
-    """Обработка выбора в развилке с возможностью повтора шага"""
+    """Обработка выбора в развилке"""
     data_parts = callback.data.split("_")
-    step_index = int(data_parts[1])
-    option_index = int(data_parts[2]) - 1
+
+    # Проверяем что это выбор варианта (branch_1_2), а не continue (branch_continue_3)
+    if len(data_parts) != 3:
+        return
+
+    try:
+        step_index = int(data_parts[1])
+        option_index = int(data_parts[2]) - 1
+    except ValueError:
+        return
 
     user_data = await state.get_data()
     scenario = user_data['scenario']
@@ -119,26 +127,55 @@ async def handle_branch_callback(callback: CallbackQuery, state: FSMContext):
     selected_option = step['options'][option_index]
     response = selected_option['response']
 
-    # Отправляем ответ на выбор
-    await callback.message.answer(response, parse_mode=ParseMode.HTML)
-
     # Проверяем, нужно ли повторять шаг
     should_repeat = selected_option.get('repeat_step', False)
 
     if should_repeat:
         # Остаемся на текущем шаге
         await callback.message.edit_reply_markup(reply_markup=None)
-        # Заново отправляем тот же шаг
+        await callback.message.answer(response)
         await send_scenario_step(callback.message, state)
     else:
-        # Переходим к следующему шагу
-        await state.update_data(current_step=step_index + 1)
+        # Убираем старую клавиатуру
         await callback.message.edit_reply_markup(reply_markup=None)
-        await send_scenario_step(callback.message, state)
+
+        # Проверяем, нужно ли показывать кнопку "дальше"
+        show_continue = selected_option.get('show_continue_button', True)  # По умолчанию true
+
+        if show_continue:
+            # Отправляем ответ с кнопкой "дальше"
+            await callback.message.answer(
+                response,
+                reply_markup=create_continue_keyboard(step_index + 1)
+            )
+
+            # Сохраняем следующий шаг и ждем продолжения
+            await state.update_data(next_step_after_branch=step_index + 1)
+            await state.set_state(UserState.waiting_branch_continue)
+        else:
+            # Отправляем ответ без кнопки и сразу переходим к следующему шагу
+            await callback.message.answer(response)
+            await state.update_data(current_step=step_index + 1)
+            await send_scenario_step(callback.message, state)
 
     await callback.answer()
 
 
+@router.callback_query(F.data.startswith("con_branch_"))
+async def handle_branch_continue(callback: CallbackQuery, state: FSMContext):
+    """Обработка кнопки 'дальше' после branch"""
+    try:
+        next_step = int(callback.data.split("_")[2])
+    except (ValueError, IndexError):
+        await callback.answer("Ошибка перехода")
+        return
+
+    # Переходим к следующему шагу
+    await state.update_data(current_step=next_step)
+    await state.set_state(UserState.in_scenario)
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await send_scenario_step(callback.message, state)
+    await callback.answer()
 
 @router.message(StateFilter(UserState.waiting_text_input))
 async def handle_text_input(message: Message, state: FSMContext):

@@ -137,29 +137,43 @@ def validate_step_structure(step: dict) -> bool:
     elif step_type == "text_answer":
         return True  # Текстовый ответ требует только текст
 
+
     elif step_type == "branch":
-        # Развилка требует options
+
         if 'options' not in step:
             logger.error("Для типа 'branch' отсутствует поле 'options'")
+
             return False
 
         if not isinstance(step['options'], list) or len(step['options']) == 0:
             logger.error("Поле 'options' должно быть непустым списком")
+
             return False
 
-        # Проверка каждой опции
         for i, option in enumerate(step['options']):
+
             if 'text' not in option:
                 logger.error(f"Опция {i + 1} отсутствует поле 'text'")
+
                 return False
 
             if 'response' not in option:
                 logger.error(f"Опция {i + 1} отсутствует поле 'response'")
+
                 return False
 
             # Проверяем repeat_step если есть
+
             if 'repeat_step' in option and not isinstance(option['repeat_step'], bool):
                 logger.error(f"Опция {i + 1}: поле 'repeat_step' должно быть boolean")
+
+                return False
+
+            # Проверяем show_continue_button если есть
+
+            if 'show_continue_button' in option and not isinstance(option['show_continue_button'], bool):
+                logger.error(f"Опция {i + 1}: поле 'show_continue_button' должно быть boolean")
+
                 return False
 
         return True
