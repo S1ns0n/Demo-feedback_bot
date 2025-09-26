@@ -112,7 +112,11 @@ def validate_step_structure(step: dict) -> bool:
 
     # Валидация в зависимости от типа шага
     if step_type == "theory":
-        return True  # Теория требует только текст
+        # Проверяем is_final если есть
+        if 'is_final' in step and not isinstance(step['is_final'], bool):
+            logger.error("Поле 'is_final' должно быть boolean")
+            return False
+        return True
 
     elif step_type == "practice":
         # Практика требует кнопки и правильный ответ

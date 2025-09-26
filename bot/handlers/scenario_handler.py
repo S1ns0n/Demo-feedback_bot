@@ -8,6 +8,7 @@ from aiogram.enums import ParseMode
 from bot.states.user_state import UserState
 from bot.utils.scenario_loader import load_scenario
 from bot.keyboards.scenario_keyboards import create_theory_keyboard, create_practice_keyboard, create_branch_keyboard, create_survey_keyboard, create_continue_keyboard
+from bot.keyboards.menu_keyboards import go_to_menu_keyboard
 from bot.config import IMAGE_DIR
 router = Router()
 
@@ -20,7 +21,7 @@ async def send_scenario_step(message: Message, state: FSMContext):
 
     if current_step >= len(scenario['steps']):
         await message.answer("🎉 Раздел завершен! Можете вернуться к списку разделов командой /menu",
-                             reply_markup=ReplyKeyboardRemove())
+                             reply_markup=go_to_menu_keyboard())
         await state.clear()
         return
 
@@ -46,9 +47,17 @@ async def send_scenario_step(message: Message, state: FSMContext):
             await message.answer(text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
     if step['type'] == "theory":
-        # Используем кастомный текст кнопки если есть, иначе стандартный
-        button_text = step.get('button_text', 'Дальше')
-        keyboard = create_theory_keyboard(current_step, button_text)
+        # Проверяем, является ли сообщение конечным
+        is_final = step.get('is_final', False)
+
+        if is_final:
+            # Для конечного сообщения используем специальную клавиатуру
+            keyboard = go_to_menu_keyboard()
+        else:
+            # Для обычного сообщения
+            button_text = step.get('button_text', 'дальше')
+            keyboard = create_theory_keyboard(current_step, button_text)
+
         await send_content(step['text'], keyboard)
         await state.set_state(UserState.in_scenario)
 
@@ -143,7 +152,7 @@ async def handle_branch_callback(callback: CallbackQuery, state: FSMContext):
         show_continue = selected_option.get('show_continue_button', True)  # По умолчанию true
 
         if show_continue:
-            # Отправляем ответ с кнопкой "дальше"
+            # Отправляем ответ с кнопкой "дальше"м
             await callback.message.answer(
                 response,
                 reply_markup=create_continue_keyboard(step_index + 1)
