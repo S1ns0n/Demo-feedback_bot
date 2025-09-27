@@ -93,6 +93,11 @@ async def send_scenario_step(message: Message, state: FSMContext):
         await send_content(step['text'], keyboard)
         await state.set_state(UserState.waiting_branch)
 
+    elif step['type'] == "branch_with_input":
+        keyboard = create_branch_keyboard(step['options'], current_step)
+        await send_content(step['text'], keyboard)
+        await state.set_state(UserState.waiting_branch)
+
     elif step['type'] == "survey":
         keyboard = create_survey_keyboard(step['buttons'], current_step)
         await send_content(step['text'], keyboard)
@@ -116,10 +121,9 @@ async def handle_survey_callback(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("branch_"))
 async def handle_branch_callback(callback: CallbackQuery, state: FSMContext):
-    """Обработка выбора в развилке"""
+    """Обработка выбора в развилке (общий для branch и branch_with_input)"""
     data_parts = callback.data.split("_")
 
-    # Проверяем что это выбор варианта (branch_1_2), а не continue (branch_continue_3)
     if len(data_parts) != 3:
         return
 
@@ -134,40 +138,62 @@ async def handle_branch_callback(callback: CallbackQuery, state: FSMContext):
     step = scenario['steps'][step_index]
 
     selected_option = step['options'][option_index]
-    response = selected_option['response']
+    response = selected_option['response'] if 'response' in selected_option else selected_option.get('input_prompt', '')
 
-    # Проверяем, нужно ли повторять шаг
-    should_repeat = selected_option.get('repeat_step', False)
+    # Определяем тип шага
+    step_type = step['type']
 
-    if should_repeat:
-        # Остаемся на текущем шаге
-        await callback.message.edit_reply_markup(reply_markup=None)
-        await callback.message.answer(response)
-        await send_scenario_step(callback.message, state)
-    else:
-        # Убираем старую клавиатуру
-        await callback.message.edit_reply_markup(reply_markup=None)
+    if step_type == "branch":
+        # Существующая логика для обычного branch
+        should_repeat = selected_option.get('repeat_step', False)
+        show_continue = selected_option.get('show_continue_button', True)
 
-        # Проверяем, нужно ли показывать кнопку "дальше"
-        show_continue = selected_option.get('show_continue_button', True)  # По умолчанию true
-
-        if show_continue:
-            # Отправляем ответ с кнопкой "дальше"м
-            await callback.message.answer(
-                response,
-                reply_markup=create_continue_keyboard(step_index + 1)
-            )
-
-            # Сохраняем следующий шаг и ждем продолжения
-            await state.update_data(next_step_after_branch=step_index + 1)
-            await state.set_state(UserState.waiting_branch_continue)
-        else:
-            # Отправляем ответ без кнопки и сразу переходим к следующему шагу
+        if should_repeat:
+            await callback.message.edit_reply_markup(reply_markup=None)
             await callback.message.answer(response)
-            await state.update_data(current_step=step_index + 1)
             await send_scenario_step(callback.message, state)
+        else:
+            await callback.message.edit_reply_markup(reply_markup=None)
+
+            if show_continue:
+                await callback.message.answer(response, reply_markup=create_continue_keyboard(step_index + 1))
+                await state.update_data(next_step_after_branch=step_index + 1)
+                await state.set_state(UserState.waiting_branch_continue)
+            else:
+                await callback.message.answer(response)
+                await state.update_data(current_step=step_index + 1)
+                await send_scenario_step(callback.message, state)
+
+    elif step_type == "branch_with_input":
+        # Новая логика для branch_with_input
+        await callback.message.edit_reply_markup(reply_markup=None)
+
+        # Сохраняем данные для текстового ввода
+        await state.update_data(
+            current_step=step_index,
+            branch_input_prompt=selected_option['input_prompt'],
+            next_step_after_input=step_index + 1
+        )
+
+        # Переходим к текстовому вводу
+        await state.set_state(UserState.waiting_branch_input)
+        await callback.message.answer(selected_option['input_prompt'], reply_markup=ReplyKeyboardRemove())
 
     await callback.answer()
+
+
+@router.message(StateFilter(UserState.waiting_branch_input))
+async def handle_branch_input(message: Message, state: FSMContext):
+    """Обработка текстового ввода после branch_with_input"""
+    user_data = await state.get_data()
+    next_step = user_data['next_step_after_input']
+
+    # Сохраняем ответ пользователя (опционально)
+    # await state.update_data(user_input=message.text)
+
+    # Переходим к следующему шагу
+    await state.update_data(current_step=next_step)
+    await send_scenario_step(message, state)
 
 
 @router.callback_query(F.data.startswith("con_branch_"))

@@ -194,6 +194,29 @@ def validate_step_structure(step: dict) -> bool:
 
         return True
 
+
+    elif step_type == "branch_with_input":
+        # Проверяем options
+        if 'options' not in step:
+            logger.error("Для типа 'branch_with_input' отсутствует поле 'options'")
+            return False
+
+        if not isinstance(step['options'], list) or len(step['options']) == 0:
+            logger.error("Поле 'options' должно быть непустым списком")
+            return False
+
+        # Проверяем каждую опцию
+        for i, option in enumerate(step['options']):
+            if 'text' not in option:
+                logger.error(f"Опция {i + 1} отсутствует поле 'text'")
+                return False
+
+            if 'input_prompt' not in option:
+                logger.error(f"Опция {i + 1} отсутствует поле 'input_prompt'")
+                return False
+
+        return True
+
     else:
         logger.error(f"Неизвестный тип шага: '{step_type}'")
         return False

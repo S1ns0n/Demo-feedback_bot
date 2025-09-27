@@ -7,3 +7,4 @@ class UserState(StatesGroup):
     waiting_branch = State()
     waiting_survey = State()
     waiting_branch_continue = State()
+    waiting_branch_input = State()
