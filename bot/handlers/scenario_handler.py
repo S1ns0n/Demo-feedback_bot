@@ -55,7 +55,7 @@ async def send_scenario_step(message: Message, state: FSMContext):
             keyboard = go_to_menu_keyboard()
         else:
             # Для обычного сообщения
-            button_text = step.get('button_text', 'дальше')
+            button_text = step.get('button_text', 'Дальше')
             keyboard = create_theory_keyboard(current_step, button_text)
 
         await send_content(step['text'], keyboard)
