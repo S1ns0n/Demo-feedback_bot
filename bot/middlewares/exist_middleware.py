@@ -93,9 +93,6 @@ class ExistMiddleware(BaseMiddleware):
         whitelist = self.get_whitelist()
         admin_ids = self.get_admin_ids()
 
-        print(f"Белый список: {whitelist}")
-        print(f"ID пользователя: {user_id}")
-        print(f"Администраторы: {admin_ids}")
 
         # Проверяем доступ (админы всегда имеют доступ)
         if user_id in whitelist or user_id in admin_ids:
