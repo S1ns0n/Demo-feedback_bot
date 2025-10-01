@@ -1,11 +1,11 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 
-def create_theory_keyboard(step_index: int, button_text: str = "дальше →") -> InlineKeyboardMarkup:
+def create_theory_keyboard(step_index: int, button_text: str = "Дальше") -> InlineKeyboardMarkup:
     """
     Создает клавиатуру для теоретического блока
     :param step_index: индекс текущего шага
-    :param button_text: текст кнопки (по умолчанию "дальше →")
+    :param button_text: текст кнопки (по умолчанию "Дальше")
     """
     button = InlineKeyboardButton(
         text=button_text,
@@ -64,7 +64,7 @@ def create_survey_keyboard(buttons: list, step_index: int) -> InlineKeyboardMark
 def create_continue_keyboard(next_step_index: int) -> InlineKeyboardMarkup:
     """Клавиатура для продолжения после branch"""
     button = InlineKeyboardButton(
-        text="дальше",
+        text="Дальше",
         callback_data=f"con_branch_{next_step_index}"
     )
     return InlineKeyboardMarkup(inline_keyboard=[[button]])

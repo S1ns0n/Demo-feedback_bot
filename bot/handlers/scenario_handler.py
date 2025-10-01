@@ -226,7 +226,7 @@ async def handle_text_input(message: Message, state: FSMContext):
 @router.message(Command("start_scenario"))
 async def cmd_start_scenario(message: Message, state: FSMContext):
     """Начало сценария по умолчанию"""
-    scenario = load_scenario("day_6")
+    scenario = load_scenario("day_1")
 
     if not scenario:
         await message.answer("❌ Сценарий не найден")
@@ -267,7 +267,7 @@ async def handle_answer_callback(callback: CallbackQuery, state: FSMContext):
     is_correct = user_answer == step.get('correct_answer', '')
 
     if is_correct:
-        await callback.message.answer("✅ Правильно! Переходим дальше...", parse_mode=ParseMode.HTML)
+        await callback.message.answer("✅ Правильно! Переходим а...", parse_mode=ParseMode.HTML)
         await state.update_data(current_step=step_index + 1)
         await callback.message.edit_reply_markup(reply_markup=None)
         await send_scenario_step(callback.message, state)
